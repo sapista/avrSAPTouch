@@ -133,6 +133,17 @@ void picom_TXqueue_append_faderUntouched(picom_handler_t picom, uint8_t untouch_
 	circular_buf_put(picom->TX_buffer, packet);
 }
 
+void picom_TXqueue_append_EncoderValue(picom_handler_t picom, int8_t value)
+{
+	//Prepare the serial packet
+	uint16_t packet = 0x2080; //Set just byte markers
+	packet |= value & 0x7F;
+	packet |= (value & 0x80) << 1;
+
+	//Append to the TX queue
+	circular_buf_put(picom->TX_buffer, packet);
+}
+
 #define TX_QUEUE_IDLE 0
 #define TX_QUEUE_SENDING_FIRST_BYTE 1
 #define TX_QUEUE_SENDING_SECOND_BYTE 2

@@ -11,7 +11,7 @@
 #include "circular_buffer.h"
 
 //Serial Baudrate used for raspberry pi comunication
-#define PICOM_BAUDRATE 38400
+#define PICOM_BAUDRATE 250000
 #define PICOM_RX_BUFFER_SIZE 256
 #define PICOM_TX_BUFFER_SIZE 256
 
@@ -47,6 +47,9 @@ void picom_add_setFaderValueCallback(picom_handler_t picom, void (*fun_ptr)(uint
 
 // Append a fader value at the TX queue
 void picom_TXqueue_append_faderValue(picom_handler_t picom, uint8_t fader_id, uint16_t value);
+
+// Append Encoder value to the TX queue
+void picom_TXqueue_append_EncoderValue(picom_handler_t picom, int8_t value);
 
 // Append a fader untouched flags at the TX queue
 void picom_TXqueue_append_faderUntouched(picom_handler_t picom, uint8_t untouch_flags);

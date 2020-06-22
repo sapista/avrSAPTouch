@@ -3,6 +3,7 @@
  *
  *  Created on: 17 dic. 2017
  *      Author: sapista
+ *      comm..
  */
 
 
@@ -14,10 +15,68 @@
 #include <avr/pgmspace.h>
 #include <avr/wdt.h>
 #include <util/delay.h>
+#include <util/atomic.h>
 #include <stdio.h>
 #include "uart.h"
 #include "fader.h"
 #include "raspSerial.h"
+
+#define ENCODER_THRESHOLD 8 //Minimum encoder increment to filter out bouncing artefacts
+#define REVERSE_ENCODER //Define this to reverse the encoder wiring
+volatile int8_t encoder_value = 0;
+
+//INT0 interrupt used for encoder
+ISR(INT0_vect )
+{
+	if(!bit_is_clear(PIND, PD1))
+	{
+#ifdef REVERSE_ENCODER
+		encoder_value++;
+		//printf("+");
+#else
+		encoder_value--;
+#endif
+	}
+	else
+	{
+#ifdef REVERSE_ENCODER
+		encoder_value--;
+		//printf("-");
+#else
+		encoder_value++;
+#endif
+	}
+
+	encoder_value = encoder_value > 100 ? 100 : encoder_value; //100 to ensure to saturate at 8 bits (sign bit + 7 data bits)
+	encoder_value = encoder_value < -100 ? -100 : encoder_value; //-100 to ensure to saturate at 8 bits (sign bit + 7 data bits)
+}
+
+//INT1 interrupt used for encoder
+ISR(INT1_vect )
+{
+	if(!bit_is_clear(PIND, PD0))
+	{
+#ifdef REVERSE_ENCODER
+		encoder_value++;
+		//printf("+");
+#else
+		encoder_value--;
+#endif
+	}
+	else
+	{
+#ifdef REVERSE_ENCODER
+		encoder_value--;
+		//printf("-");
+#else
+		encoder_value++;
+#endif
+	}
+
+	encoder_value = encoder_value > 100 ? 100 : encoder_value; //100 to ensure to saturate at 8 bits (sign bit + 7 data bits)
+	encoder_value = encoder_value < -100 ? -100 : encoder_value; //-100 to ensure to saturate at 8 bits (sign bit + 7 data bits)
+}
+
 
 
 int main()
@@ -48,6 +107,15 @@ int main()
 	//Init raspberry pi serial communications
 	picom_handler_t picom = picom_init();
 	picom_add_setFaderValueCallback(picom, setFaderTarget);
+
+	//Encoder initialization
+	DDRD &=~ (1 << PD0);				// PD2 and PD3 as input
+	DDRD &=~ (1 << PD1);
+	PORTD |= (1 << PD0)|(1 << PD1);   // PD0 and PD1 pull-up enabled
+
+	EIMSK |= (1<<INT0)|(1<<INT1);		// enable INT0 and INT1
+	EICRA |= (1<<ISC01)|(1<<ISC11)|(1<<ISC10); // INT0 - falling edge, INT1 - reising
+
 
 	//Global Interrupts enable
 	sei();
@@ -82,6 +150,27 @@ int main()
 
 		//Process incoming queue
 		picom_process_RX_queue(picom);
+
+		//Check for encoder changes to send
+		if( encoder_value > ENCODER_THRESHOLD)
+		{
+			ATOMIC_BLOCK(ATOMIC_FORCEON)
+			{
+				picom_TXqueue_append_EncoderValue(picom, encoder_value - ENCODER_THRESHOLD);
+				encoder_value = 0;
+			}
+			picom_process_TX_queue(picom); //Try to send at least the first byte
+		}
+
+		else if( encoder_value < -ENCODER_THRESHOLD )
+		{
+			ATOMIC_BLOCK(ATOMIC_FORCEON)
+			{
+				picom_TXqueue_append_EncoderValue(picom, encoder_value + ENCODER_THRESHOLD);
+				encoder_value = 0;
+			}
+			picom_process_TX_queue(picom); //Try to send at least the first byte
+		}
 
 		//Check for fader changes to send
 		uint8_t fader_changed = getFaderChanged();
