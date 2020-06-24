@@ -124,11 +124,11 @@ void initFaders()
 	DIDR2 = 0xFF; //All 8 faders are connected to to ADC channels 8 to 15
 
 	//Touch sensors using analog comparator and timer1 input capture mode
-	ACSR |= (1<<ACIC)| (1<<ACIS1); //Analog comparator connected t timer1 and triggered by falling edge.
+	ACSR |= (1<<ACBG) | (1<<ACIC); //Analog comparator connected t timer1 and triggered by rising edge using internal bandgap voltage ref.
 	DIDR1 |= (1<<AIN1D) | (1<<AIN0D); //Disable digital input buffers at analog inputs of the comparator.
 
 	//Touch sensor using input capture feature of timer1 (16 bits mode)
-	TCCR1B = (1<<ICNC1) | (1<<CS10); //Use a prescaler of 1 for the measurment to obtain high precission
+	TCCR1B = (1<<ICNC1) | (1<<CS10) | (1<<ICES1); //Use a prescaler of 1 for the measurment to obtain high precission
 	TIMSK1 |= (1<<TOIE1); //Overflow interrupt enable
 	TCNT1 = 0;
 	TOUCH_PULSE_PORT |= (1 << TOUCH_PULSE_PIN); //Pulse output ON to disable touch measurement till next timer overflow
@@ -369,7 +369,7 @@ ISR(TIMER1_OVF_vect)
 		else
 		{
 			//Set the touch register
-			if(touchValues[touch_channel]  > (TOUCH_SENSOR_THRESHOLD + touchBackground[touch_channel]))
+			if(touchValues[touch_channel]  > (touchBackground[touch_channel] + TOUCH_SENSOR_THRESHOLD))
 			{
 				touched |= (1<<touch_channel);
 

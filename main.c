@@ -122,10 +122,9 @@ int main()
 
 	calibrateTouchSensors(); //always calibrate touch sensors at the start
 
-    //uint8_t icounttest = 0;
-	while(1)
+    while(1)
 	{
-		/*
+/*DEBUG prints
 		PORTF |= (1<<PF0); //LED on
 		_delay_ms(500);
 		if( getTouchedFader() )
@@ -139,6 +138,7 @@ int main()
 		}
 
 
+		uint8_t icounttest = 0;
 		printf("Int Number test: %d\n", icounttest);
 		icounttest++;
 
@@ -146,7 +146,8 @@ int main()
 		{
 			printf("Fader%u: Pos:%u\tTocuh(%u):%u\n", i+1, _position[i], 0x01&(getTouchedFader()>>i), _touchValues[i]);
 		}
-		*/
+
+*/
 
 		//Process incoming queue
 		picom_process_RX_queue(picom);
@@ -203,5 +204,6 @@ int main()
 		picom_process_TX_queue(picom); //Ensure second byte is sent
 		faderTouched_ant = faderTouched; //Update fader touch ant
 	}
+
 	return 0;
 }
