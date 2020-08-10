@@ -116,11 +116,11 @@ int main()
 	EIMSK |= (1<<INT0)|(1<<INT1);		// enable INT0 and INT1
 	EICRA |= (1<<ISC01)|(1<<ISC11)|(1<<ISC10); // INT0 - falling edge, INT1 - reising
 
+	calibrateTouchSensors(); //always calibrate touch sensors at the start
 
 	//Global Interrupts enable
 	sei();
 
-	calibrateTouchSensors(); //always calibrate touch sensors at the start
 
     while(1)
 	{

@@ -26,9 +26,9 @@
 #define TOUCH_MUX_PINC   PA2
 #define TOUCH_MUX_DDR	 DDRA
 
-#define TOUCH_CALIBRATE_AVERAGE 10 //Number of measurements to average to calibrate a touch sensors background
-#define TOUCH_SENSOR_THRESHOLD 500 //The fader is touched if a touch value above background+threshold is sensed
-#define	TOUCH_WAIT_TIMMER_START 49536 //This is to set a touch polling of 1000 Hz (timmer_start_value = 2^16 - 16e6/poll_freq)
+#define TOUCH_CALIBRATE_AVERAGE 30 //Number of measurements to average to calibrate a touch sensors background
+#define TOUCH_SENSOR_THRESHOLD 300 //The fader is touched if a touch value above background+threshold is sensed
+#define	TOUCH_WAIT_TIMMER_START 0 //This is to set a touch polling of 244 Hz (timmer_start_value = 2^16 - 16e6/poll_freq)
 
 #define P_CONTROLLER  2
 #define UP_LIMIT 1020 //Mechanical upper position limit

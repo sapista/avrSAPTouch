@@ -15,6 +15,7 @@ volatile uint16_t *ftarget;
 volatile uint16_t *fposition;
 volatile uint16_t *touchValues; //Pointer to a 8-element vectors to store the last touch measurements
 volatile uint8_t touched; //One bit for each fader touch sensor 1 is touched
+volatile uint8_t touched_ant; //One bit for each fader touch sensor 1 is touched_ant to fitler out spurious events
 volatile uint8_t changed; //One bit for each fader indicating if the value has changed
 
 volatile uint8_t AdcStarted = 0; //Adc state
@@ -90,6 +91,7 @@ void initFaders()
 	}
 
 	touched = 0;
+	touched_ant = 0;
 
 	//Config pins for the touch sensors
 	TOUCH_PULSE_DDR |= (1 << TOUCH_PULSE_PIN);
@@ -340,23 +342,22 @@ ISR(TIMER1_OVF_vect)
 	if( TOUCH_PULSE_PORT & (1 << TOUCH_PULSE_PIN) )
 	{
 		//Touch pulse output is ON so pulse is not being sended, just start a new measurement
-		TOUCH_PULSE_PORT &= ~(1 << TOUCH_PULSE_PIN); //Pulse output OFF to start next input capture event
 		TCNT1 = 0;
+		TOUCH_PULSE_PORT &= ~(1 << TOUCH_PULSE_PIN); //Pulse output OFF to start next input capture event
 	}
 	else
 	{
-		//Touch pulse output is OFF so this overlow must caputre the touch measuremnt
+		//Touch pulse output is OFF so this overflow must capture the touch measurement
 		uint8_t touch_channel = TOUCH_MUX_PORT & ((1<<TOUCH_MUX_PINA) | (1<<TOUCH_MUX_PINB) | (1<<TOUCH_MUX_PINC));
 
 		if (TIFR1 & (1 << ICF1))
 		{
 			//Input capture detected
 			touchValues[touch_channel] = ICR1;
-			TIFR1 |= (1 << ICF1); //Clear the input capture interrupt flag
 		}
 		else
 		{
-			//Timer overflow without input caputre, thus fader is touched for safety reasons
+			//Timer overflow without input capture, thus fader is touched for safety reasons
 			touchValues[touch_channel] = 0xFFFF;
 		}
 
@@ -371,19 +372,25 @@ ISR(TIMER1_OVF_vect)
 			//Set the touch register
 			if(touchValues[touch_channel]  > (touchBackground[touch_channel] + TOUCH_SENSOR_THRESHOLD))
 			{
-				touched |= (1<<touch_channel);
-
-				//Disable motor PWM output, dir pin is also set to zero in the motor controller
-				*tccra_ptr[touch_channel] &= ~(1<<tccra_com_bits[touch_channel]);
-				*pwm_port[touch_channel] &= ~(1<< pwm_pin[touch_channel]);
-				PWM_DIR_PORT &= ~(1<<touch_channel);
+				if( touched_ant & (1<<touch_channel) )
+				{
+					touched |= (1<<touch_channel);
+					//Disable motor PWM output, dir pin is also set to zero in the motor controller
+					*tccra_ptr[touch_channel] &= ~(1<<tccra_com_bits[touch_channel]);
+					*pwm_port[touch_channel] &= ~(1<< pwm_pin[touch_channel]);
+					PWM_DIR_PORT &= ~(1<<touch_channel);
+				}
+				touched_ant |= (1<<touch_channel);
 			}
 			else
 			{
-				touched &= ~(1<<touch_channel);
-
-				//Not touched, enable motor
-				*tccra_ptr[touch_channel] |= (1<<tccra_com_bits[touch_channel]);
+				if(!(touched_ant & (1<<touch_channel)))
+				{
+					touched &= ~(1<<touch_channel);
+					//Not touched, enable motor
+					*tccra_ptr[touch_channel] |= (1<<tccra_com_bits[touch_channel]);
+				}
+				touched_ant &= ~(1<<touch_channel);
 			}
 		}
 
@@ -394,9 +401,11 @@ ISR(TIMER1_OVF_vect)
 		TOUCH_MUX_PORT &= ~((1<<TOUCH_MUX_PINA) | (1<<TOUCH_MUX_PINB) | (1<<TOUCH_MUX_PINC));
 		TOUCH_MUX_PORT |= touch_channel;
 
-		//Pulse output ON to dissable the touch measurement
+		//Pulse output ON to disable the touch measurement
 		TOUCH_PULSE_PORT |= (1 << TOUCH_PULSE_PIN);
 	}
+
+	TIFR1 |= (1 << ICF1); //Clear the input capture interrupt flag
 
 	//ISR test pin
 	#ifdef ISR_TOUCH_TEST_PIN
